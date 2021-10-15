@@ -1,31 +1,31 @@
-class MovieAPI {
-    SERVICE = "https://api.themoviedb.org/3";
+class MoovieAPI {
+    SERVICE = "https://api.themoviedb.org";
     API_KEY = "04c35731a5ee918f014970082a0088b1";
     IMAGE_PATH = "https://image.tmdb.org/t/p/w1280";
     
-    getMovies(sort_by='popularity.desc', page=1){
-        let url = new URL("/discover/movie", base=this.SERVICE)
-            .append("api_key", this.API_KEY)
-            .append("page", page)
-            .append("sort_by", sort_by);
+    async getMovies(sort_by='popularity.desc', page=1){
+        let url = new URL("3/discover/movie", this.SERVICE);
         
-        return this._loadMovies(url);
+        url.searchParams.append("sort_by", sort_by);
+        url.searchParams.append("api_key", this.API_KEY);
+        url.searchParams.append("page", page);
+        return await this._loadMovies(url);
     }
     
-    searchMovies(query){
-        let url = new URL("/search/movie", base=this.SERVICE)
-            .append("api_key", this.API_KEY)
-            .append("query", query);
+    async searchMovies(query){
+        let url = new URL("3/search/movie", this.SERVICE);
+        	url.searchParams.append("api_key", this.API_KEY);
+            url.searchParams.append("query", query);
         
-        return this._loadMovies(url);
+        return await this._loadMovies(url);
     }
     
-    _loadMovies(url){
-        let response = await fetch(url);
-        let responseJSON = await response.json();
-        
-        let movies = [];
-        responseJSON.each((item) => {
+    async _loadMovies(url){
+        let response = await fetch(url.toString()),
+            responseJSON = await response.json(),
+            movies = [];
+            
+        responseJSON.results.forEach((item) => {
             movies.push(this._getMovieInfo(item));
         });
         
@@ -38,10 +38,10 @@ class MovieAPI {
             title: movie.title,
             description: movie.overview,
             score: movie.vote_average,
-        };
+        }
     }
-    
 }
+
 
 class App {
     
@@ -50,50 +50,81 @@ class App {
         this.form = document.getElementById(formId);
         this.search = document.getElementById(searchId);
         
-        initializeEvents();
+        this._initializeEvents();
     }
     
-    showMovies(movies){
+    async showMovies(movies=null){
+        let movies_list = movies || await this.getInitialMoovies();
         this.main.innerHTML = "";
-
-        movies.forEach((movie) => {
-            const { poster_path, title, vote_average, overview } = movie;
-            const movieElement = document.createElement("div");
+        
+        movies_list.forEach((movie) => {
+            let movieElement = document.createElement("div");
             
             movieElement.classList.add("movie");
-            movieElement.innerHTML = 
-
-        main.appendChild(movieEl);
-    });
+            movieElement.innerHTML = this.createMovieHTMLElement(movie);
+            
+        	this.main.appendChild(movieElement);
+    	});
     }
     
-    createMovieHTMLElement(movie){      
-        html = `
+    async getInitialMoovies(){
+        let api = new MoovieAPI();
+        return await api.getMovies();
+    }
+    
+    createMovieHTMLElement(movie){   
+        let {poster, title, score, description: info} = movie;   
+        return `
             <img
-                src="${this + poster_path}"
+                src="${poster}"
                 alt="${title}"
             />
             <div class="movie-info">
                 <h3>${title}</h3>
-                <span class="${getClassByRate(
-                    vote_average
-                )}">${vote_average}</span>
+                <span class="${this.getClassByScore(score)}">${score}</span>
             </div>
             <div class="overview">
-                <h3>Overview:</h3>
-                ${overview}
+                <h3>Overview:</h3>${info}
             </div>
         `;
     }
     
-    initializeEvents(){
-        
-        form.addEventListener("submit", (e) => {
-            e.preventDefault();
-            let 
-            
-        });
-        
+    getClassByScore(score){
+    	const classes = [
+    		[8, "green"],
+    		[5, "orange"],
+    		[3, "black"],
+    	]
+    	
+    	let class_ = "red";
+    	for (let i=0; i < classes.length; i++){
+    		let edge = classes[i][0],
+    		    level = classes[i][1];
+    		
+    		if (score >= edge){
+    			class_ = level;
+    			break;
+    		}
+    	}    	
+    	return class_;
     }
-
+    
+    _initializeEvents(){
+    
+        form.addEventListener("submit", async (e) => {
+            e.preventDefault();
+            let api = new MoovieAPI(),
+                movies = await api.searchMovies(this.search.value);
+                
+	        this.showMovies(movies);
+        });
+    }
 }
+
+app = new App(
+    baseElementId="main",
+    formId="form",
+    searchId="search",
+);
+app.showMovies();
+
